@@ -630,7 +630,7 @@ $(OPTION_DESCRIPTIONS)
     ## 10. Stopping Criteria:
     timeout_in_seconds::Union{Nothing,Real}=nothing,
     max_evals::Union{Nothing,Integer}=nothing,
-    input_stream::IO=stdin,
+    input_stream::Union{IO,Nothing}=stdin,
     ## 11. Performance and Parallelization:
     turbo::Bool=false,
     bumper::Bool=false,

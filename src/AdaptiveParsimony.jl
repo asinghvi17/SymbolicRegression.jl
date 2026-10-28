@@ -22,6 +22,8 @@ struct RunningSearchStatistics
     frequencies::Vector{Float64}
     normalized_frequencies::Vector{Float64}  # Stores `frequencies`, but normalized (updated once in a while)
 end
+Base.copy(s::RunningSearchStatistics) = RunningSearchStatistics(
+    s.window_size,copy(s.frequencies),copy(s.normalized_frequencies))
 
 function RunningSearchStatistics(; options::AbstractOptions, window_size::Int=100000)
     init_frequencies = ones(Float64, options.maxsize)
@@ -71,7 +73,7 @@ function move_window!(running_search_statistics::RunningSearchStatistics)
             num_remaining = size(indices_to_subtract, 1)
             amount_to_subtract = min(
                 difference_in_size / num_remaining,
-                min(frequencies[indices_to_subtract]...) - smallest_frequency_allowed,
+                minimum(frequencies[indices_to_subtract]) - smallest_frequency_allowed,
             )
             frequencies[indices_to_subtract] .-= amount_to_subtract
             total_amount_to_subtract = amount_to_subtract * num_remaining

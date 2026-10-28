@@ -76,6 +76,7 @@ function optimize_and_simplify_population(
 
     batched_dataset = options.batching ? batch(dataset, options.batch_size) : dataset
 
+    let pop=pop
     @threads_if should_thread for j in 1:(pop.n)
         if options.should_simplify
             tree = pop.members[j].tree
@@ -90,6 +91,7 @@ function optimize_and_simplify_population(
             )
         end
     end
+    end # Keep the thread closure independent of the later reassignment of pop.
     num_evals = sum(array_num_evals)
     pop, tmp_num_evals = finalize_costs(dataset, pop, options)
     num_evals += tmp_num_evals

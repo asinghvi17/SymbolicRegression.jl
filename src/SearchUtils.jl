@@ -66,6 +66,21 @@ can customize runtime behaviors by passing it to `equation_search`.
 """
 abstract type AbstractRuntimeOptions end
 
+"Specialize a prepared runtime configuration without rebuilding it during search."
+struct FrozenRuntimeOptions{STATIC,O<:NamedTuple} <: AbstractRuntimeOptions
+    fields::O
+end
+@inline function Base.getproperty(options::FrozenRuntimeOptions{STATIC}, key::Symbol) where {STATIC}
+    haskey(STATIC,key) ? getproperty(STATIC,key) : getproperty(getfield(options,:fields),key)
+end
+function freeze_runtime_options(options::AbstractRuntimeOptions)
+    names=Tuple(unique(propertynames(options)))
+    fields=NamedTuple{names}(Tuple(getproperty(options,n) for n in names))
+    static_names=Tuple(n for n in names if getproperty(options,n) isa Union{Number,Symbol,Nothing,Bool})
+    static=NamedTuple{static_names}(Tuple(getproperty(options,n) for n in static_names))
+    FrozenRuntimeOptions{static,typeof(fields)}(fields)
+end
+
 """
     RuntimeOptions{PARALLELISM,DIM_OUT,RETURN_STATE,LOGGER} <: AbstractRuntimeOptions
 
@@ -321,10 +336,13 @@ function init_dummy_pops(
     ]
 end
 
-struct StdinReader
+struct StdinReader{S}
     can_read_user_input::Bool
-    stream::IO
+    stream::S
 end
+watch_stream(::Nothing) = StdinReader(false,nothing)
+check_for_user_quit(::StdinReader{Nothing}) = false
+close_reader!(::StdinReader{Nothing}) = nothing
 
 """Start watching stream (like stdin) for user input."""
 function watch_stream(stream)
@@ -569,7 +587,7 @@ The state of the search, including the populations, worker outputs, tasks, and
 channels. This is used to manage the search and keep track of runtime variables
 in a single struct.
 """
-Base.@kwdef struct SearchState{T,L,N<:AbstractExpression{T},WorkerOutputType,ChannelType} <:
+Base.@kwdef struct SearchState{T,L,N<:AbstractExpression{T},WorkerOutputType,ChannelType,Reader} <:
                    AbstractSearchState{T,L,N}
     procs::Vector{Int}
     we_created_procs::Bool
@@ -585,7 +603,7 @@ Base.@kwdef struct SearchState{T,L,N<:AbstractExpression{T},WorkerOutputType,Cha
     num_evals::Vector{Vector{Float64}}
     cycles_remaining::Vector{Int}
     cur_maxsizes::Vector{Int}
-    stdin_reader::StdinReader
+    stdin_reader::Reader
     record::Base.RefValue{RecordType}
 end
 

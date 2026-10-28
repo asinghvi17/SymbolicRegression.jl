@@ -622,14 +622,14 @@ end
     WorkerOutputType = get_worker_output_type(
         Val(ropt.parallelism), PopType, HallOfFameType
     )
-    ChannelType = ropt.parallelism == :multiprocessing ? RemoteChannel : Channel
+    ChannelType = ropt.parallelism == :serial ? Nothing : ropt.parallelism == :multiprocessing ? RemoteChannel : Channel
 
     # Pointers to populations on each worker:
     worker_output = Vector{WorkerOutputType}[WorkerOutputType[] for j in 1:nout]
     # Initialize storage for workers
     tasks = [Task[] for j in 1:nout]
     # Set up a channel to send finished populations back to head node
-    channels = [[ChannelType(1) for i in 1:(options.populations)] for j in 1:nout]
+    channels = [[ChannelType === Nothing ? nothing : ChannelType(1) for i in 1:(options.populations)] for j in 1:nout]
     (procs, we_created_procs) = if ropt.parallelism == :multiprocessing
         configure_workers(;
             procs=ropt.init_procs,
@@ -675,7 +675,7 @@ end
         j in 1:nout
     ]
 
-    return SearchState{T,L,typeof(example_ex),WorkerOutputType,ChannelType}(;
+    return SearchState{T,L,typeof(example_ex),WorkerOutputType,ChannelType,typeof(stdin_reader)}(;
         procs=procs,
         we_created_procs=we_created_procs,
         worker_output=worker_output,
@@ -790,7 +790,7 @@ function _warmup_search!(
 
         # TODO - why is this needed??
         # Multi-threaded doesn't like to fetch within a new task:
-        c_rss = deepcopy(running_search_statistics)
+        c_rss = copy(running_search_statistics)
         last_pop = state.worker_output[j][i]
         updated_pop = @sr_spawner(
             begin
@@ -949,7 +949,7 @@ function _main_search_loop!(
                     0
                 end
 
-                c_rss = deepcopy(state.all_running_search_statistics[j])
+                c_rss = copy(state.all_running_search_statistics[j])
                 in_pop = copy(cur_pop::Population{T,L,N})
                 state.worker_output[j][i] = @sr_spawner(
                     begin
@@ -996,7 +996,7 @@ function _main_search_loop!(
                 logging_callback!(ropt.logger; state, datasets, ropt, options)
             end
         end
-        yield()
+        ropt.parallelism == :serial || yield()
 
         ################################################################
         ## Search statistics
