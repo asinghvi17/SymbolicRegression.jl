@@ -791,13 +791,21 @@ end
         typeof(trace),
         WorkerPluginStatesType,
     )
+<<<<<<< HEAD
+=======
+    ChannelType = ropt.parallelism == :serial ? Nothing : ropt.parallelism == :multiprocessing ? RemoteChannel : Channel
+>>>>>>> eaa58db6 (Stage SymbolicRegression for trim/Wasm (trim-symreg))
 
     # Pointers to populations on each worker:
     worker_output = Vector{WorkerOutputType}[WorkerOutputType[] for j in 1:nout]
     # Initialize storage for workers
     tasks = [Task[] for j in 1:nout]
     # Set up a channel to send finished populations back to head node
+<<<<<<< HEAD
     channels = [[Channel(1) for i in 1:(options.populations)] for j in 1:nout]
+=======
+    channels = [[ChannelType === Nothing ? nothing : ChannelType(1) for i in 1:(options.populations)] for j in 1:nout]
+>>>>>>> eaa58db6 (Stage SymbolicRegression for trim/Wasm (trim-symreg))
     (procs, we_created_procs) = if ropt.parallelism == :multiprocessing
         configure_workers(;
             procs=ropt.init_procs,
@@ -847,6 +855,7 @@ end
         j in 1:nout
     ]
 
+<<<<<<< HEAD
     seed_members = [Vector{PMType}() for j in 1:nout]
 
     return SearchState{
@@ -860,6 +869,9 @@ end
         WorkerPluginStatesType,
         typeof(worker_inputs),
     }(;
+=======
+    return SearchState{T,L,typeof(example_ex),WorkerOutputType,ChannelType,typeof(stdin_reader)}(;
+>>>>>>> eaa58db6 (Stage SymbolicRegression for trim/Wasm (trim-symreg))
         procs=procs,
         we_created_procs=we_created_procs,
         worker_inputs=worker_inputs,
@@ -1025,6 +1037,7 @@ function _warmup_search!(
             state.worker_assignment; out=j, pop=i, parallelism=ropt.parallelism, state.procs
         )
 
+<<<<<<< HEAD
         PopType = eltype(eltype(state.last_pops))
         PM = popmember_type(PopType)
         HallType = HallOfFame{T,L,N,PM}
@@ -1041,6 +1054,18 @@ function _warmup_search!(
         updated_pop = let verbosity = ropt.verbosity
             @sr_spawner(
                 (datasets, options) -> _dispatch_s_r_cycle(
+=======
+        # TODO - why is this needed??
+        # Multi-threaded doesn't like to fetch within a new task:
+        c_rss = copy(running_search_statistics)
+        last_pop = state.worker_output[j][i]
+        updated_pop = @sr_spawner(
+            begin
+                in_pop = first(
+                    extract_from_worker(last_pop, Population{T,L,N}, HallOfFame{T,L,N})
+                )
+                _dispatch_s_r_cycle(
+>>>>>>> eaa58db6 (Stage SymbolicRegression for trim/Wasm (trim-symreg))
                     in_pop,
                     datasets[j],
                     options;
@@ -1218,6 +1243,10 @@ function _main_search_loop!(
                 )
                 iteration = next_trace_iteration(cur_trace)
 
+<<<<<<< HEAD
+=======
+                c_rss = copy(state.all_running_search_statistics[j])
+>>>>>>> eaa58db6 (Stage SymbolicRegression for trim/Wasm (trim-symreg))
                 in_pop = copy(cur_pop::Population{T,L,N})
                 worker_plugin_states = strictmap(
                     options.plugins, returned_plugin_states, state.plugin_states[j]
@@ -1284,7 +1313,7 @@ function _main_search_loop!(
                 logging_callback!(ropt.logger; state, datasets, ropt, options)
             end
         end
-        yield()
+        ropt.parallelism == :serial || yield()
 
         ################################################################
         ## Search statistics

@@ -95,6 +95,21 @@ can customize runtime behaviors by passing it to `equation_search`.
 """
 abstract type AbstractRuntimeOptions end
 
+"Specialize a prepared runtime configuration without rebuilding it during search."
+struct FrozenRuntimeOptions{STATIC,O<:NamedTuple} <: AbstractRuntimeOptions
+    fields::O
+end
+@inline function Base.getproperty(options::FrozenRuntimeOptions{STATIC}, key::Symbol) where {STATIC}
+    haskey(STATIC,key) ? getproperty(STATIC,key) : getproperty(getfield(options,:fields),key)
+end
+function freeze_runtime_options(options::AbstractRuntimeOptions)
+    names=Tuple(unique(propertynames(options)))
+    fields=NamedTuple{names}(Tuple(getproperty(options,n) for n in names))
+    static_names=Tuple(n for n in names if getproperty(options,n) isa Union{Number,Symbol,Nothing,Bool})
+    static=NamedTuple{static_names}(Tuple(getproperty(options,n) for n in static_names))
+    FrozenRuntimeOptions{static,typeof(fields)}(fields)
+end
+
 """
     RuntimeOptions{PARALLELISM,DIM_OUT,RETURN_STATE,LOGGER,EXTERNAL_STOP} <: AbstractRuntimeOptions
 
@@ -428,6 +443,7 @@ function init_dummy_pops(
     ]
 end
 
+<<<<<<< HEAD
 mutable struct StdinReader{S<:IO}
     const can_read_user_input::Bool
     const stream::S
@@ -477,7 +493,15 @@ function parse_quit_signal(data::AbstractVector{UInt8}, saw_quit_char::Bool)
         end
     end
     return false, saw_quit_char
+=======
+struct StdinReader{S}
+    can_read_user_input::Bool
+    stream::S
+>>>>>>> eaa58db6 (Stage SymbolicRegression for trim/Wasm (trim-symreg))
 end
+watch_stream(::Nothing) = StdinReader(false,nothing)
+check_for_user_quit(::StdinReader{Nothing}) = false
+close_reader!(::StdinReader{Nothing}) = nothing
 
 """Start watching stream (like stdin) for user input."""
 function watch_stream(stream)
@@ -870,6 +894,7 @@ The state of the search, including the populations, worker outputs, tasks, and
 channels. This is used to manage the search and keep track of runtime variables
 in a single struct.
 """
+<<<<<<< HEAD
 Base.@kwdef struct SearchState{
     T,
     L,
@@ -881,6 +906,10 @@ Base.@kwdef struct SearchState{
     WorkerPluginStatesType<:Tuple,
     WorkerInputsType<:Union{Nothing,WorkerCopy},
 } <: AbstractSearchState{T,L,N}
+=======
+Base.@kwdef struct SearchState{T,L,N<:AbstractExpression{T},WorkerOutputType,ChannelType,Reader} <:
+                   AbstractSearchState{T,L,N}
+>>>>>>> eaa58db6 (Stage SymbolicRegression for trim/Wasm (trim-symreg))
     procs::Vector{Int}
     we_created_procs::Bool
     worker_inputs::WorkerInputsType
@@ -895,6 +924,7 @@ Base.@kwdef struct SearchState{
     num_evals::Vector{Vector{Float64}}
     cycles_remaining::Vector{Int}
     cur_maxsizes::Vector{Int}
+<<<<<<< HEAD
     stdin_reader::StdinReader
     trace_prototype::TraceStateType
     seed_members::Vector{Vector{PM}}
@@ -909,6 +939,10 @@ function worker_result_type(state::SearchState)
         typeof(state.trace_prototype),
         eltype(eltype(state.worker_plugin_states)),
     }
+=======
+    stdin_reader::Reader
+    record::Base.RefValue{RecordType}
+>>>>>>> eaa58db6 (Stage SymbolicRegression for trim/Wasm (trim-symreg))
 end
 
 function save_to_file(

@@ -256,7 +256,7 @@ struct Options{
     return_state::Val{_return_state}
     timeout_in_seconds::Union{Float64,Nothing}
     max_evals::Union{Int,Nothing}
-    input_stream::IO
+    input_stream::Union{IO,Nothing}
     skip_mutation_failures::Bool
     deterministic::Bool
     define_helper_functions::Bool
@@ -312,6 +312,25 @@ function Base.show(io::IO, ::MIME"text/plain", @nospecialize(options::Options))
 end
 
 specialized_options(options::AbstractOptions) = options
+
+"Build-time specialization for closed-world execution; keeps the stock algorithms."
+struct FrozenOptions{STATIC,N,E,O<:NamedTuple} <: AbstractOptions
+    fields::O
+end
+@inline function Base.getproperty(options::FrozenOptions{STATIC,N,E}, key::Symbol) where {STATIC,N,E}
+    key === :node_type && return N
+    key === :expression_type && return E
+    haskey(STATIC,key) ? getproperty(STATIC,key) : getproperty(getfield(options,:fields),key)
+end
+Base.propertynames(options::FrozenOptions) = fieldnames(Options)
+function freeze_options(options::Options)
+    names=fieldnames(typeof(options))
+    static_names=Tuple(n for n in names if getfield(options,n) isa Union{Bool,Symbol,Val})
+    dynamic_names=Tuple(n for n in names if n ∉ static_names && n ∉ (:node_type,:expression_type))
+    fields=NamedTuple{dynamic_names}(Tuple(n === :optimizer_options ? Optim.freeze_options(getfield(options,n)) : getfield(options,n) for n in dynamic_names))
+    static=NamedTuple{static_names}(Tuple(getfield(options,n) for n in static_names))
+    FrozenOptions{static,options.node_type,options.expression_type,typeof(fields)}(fields)
+end
 @unstable function specialized_options(options::Options)
     return _specialized_options(options, options.operators)
 end

@@ -94,12 +94,18 @@ function _to_vec(v::MutableTuple{S,T}) where {S,T}
 end
 
 """Return the bottom k elements of x, and their indices."""
-function bottomk_fast(x::AbstractVector{T}, k) where {T}
+Base.@constprop :aggressive function bottomk_fast(x::AbstractVector{T}, k) where {T}
     Base.Cartesian.@nif(
         32,
         d -> d == k,
         d -> _bottomk_dispatch(x, Val(d))::Tuple{Vector{T},Vector{Int}},
-        _ -> _bottomk_dispatch(x, Val(k))::Tuple{Vector{T},Vector{Int}}
+        _ -> begin
+            indices=collect(eachindex(x))
+            order=Base.Order.Perm(Base.Order.Forward,x)
+            Base.Sort._sort!(indices,Base.Sort.InitialOptimizations(Base.Sort.ScratchQuickSort(1:k)),order,(;))
+            selected=indices[1:k]
+            (x[selected],selected)
+        end
     )
 end
 

@@ -91,7 +91,12 @@ function optimize_and_simplify_population(
         dataset
     end
 
+<<<<<<< HEAD
     for j in 1:(pop.n)
+=======
+    let pop=pop
+    @threads_if should_thread for j in 1:(pop.n)
+>>>>>>> eaa58db6 (Stage SymbolicRegression for trim/Wasm (trim-symreg))
         if options.should_simplify
             tree = pop.members[j].tree
             tree = simplify_tree!(tree, options.operators)
@@ -105,6 +110,7 @@ function optimize_and_simplify_population(
             )
         end
     end
+    end # Keep the thread closure independent of the later reassignment of pop.
     num_evals = sum(array_num_evals)
     pop, tmp_num_evals = finalize_costs(dataset, pop, options)
     num_evals += tmp_num_evals
